@@ -1,0 +1,54 @@
+{
+    "variables": {
+        "build_timestamp": null,
+        "consul_version": "1.10.1",
+        "nomad_version": "1.1.3",
+        "vault_version": "1.6.3"
+    },
+    "builders": [
+        {
+            "type": "amazon-ebs",
+            "communicator": "ssh",
+            "ssh_pty": true,
+            "region": "ap-southeast-2",
+            "source_ami": "ami-08bd00d7713a39e7d",
+            "instance_type": "c4.large",
+            "ssh_username": "centos",
+            "ami_name": "CentOS7 Universal Server AMI {{user \"build_timestamp\"}} Consul {{user \"consul_version\"}} Nomad {{user \"nomad_version\"}}",
+            "ami_description": "CentOS7 Universal Server AMI {{user \"build_timestamp\"}} Consul {{user \"consul_version\"}} Nomad {{user \"nomad_version\"}}",
+            "vpc_id": "vpc-03b84c6ab9ac8804d",
+            "subnet_id": "subnet-0dbb15e7a1bb27ecf",
+            "security_group_ids": [ "sg-03e9c9d44241d9202" ],
+            "associate_public_ip_address": "true"
+        }
+    ],
+    "provisioners": [
+        { 
+            "type": "shell", 
+            "execute_command": "{{ .Vars }} sudo -E sh '{{ .Path }}'",
+            "inline": [
+                "yum update -y",
+                "timedatectl set-timezone Australia/Sydney",
+                "yum install -y epel-release",
+                "yum install -y wget lsof unzip zip bzip2 postgresql telnet bind-utils tcpdump nmap-ncat mlocate sharutils",
+                "yum install -y mdadm vim sysstat traceroute strace dos2unix ncompress mailx mutt gdb",
+                "yum install -y fontconfig dejavu-serif-fonts dejavu-sans-fonts dejavu-sans-mono-fonts git jq uuid",
+                "yum install -y yum-utils device-mapper-persistent-data lvm2",
+                "mv /etc/chrony.conf /etc/chrony.orig; echo \"server 169.254.169.123 prefer iburst\" > /etc/chrony.conf",
+                "grep -v iburst /etc/chrony.orig >> /etc/chrony.conf; rm -f /etc/chrony.orig; systemctl enable chronyd",
+                "wget https://corretto.aws/downloads/latest/amazon-corretto-8-x64-linux-jdk.rpm",
+                "yum -y localinstall amazon-corretto-8-x64-linux-jdk.rpm",
+                "yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo",
+                "yum install -y docker-ce",
+                "systemctl enable docker",
+                "git clone --branch fct-v1 https://github.com/fincleartech/terraform-aws-consul.git /tmp/terraform-aws-consul",
+                "/tmp/terraform-aws-consul/modules/install-consul/install-consul --version {{user \"consul_version\"}}",
+                "git clone --branch fct-v1 https://github.com/fincleartech/terraform-aws-nomad.git /tmp/terraform-aws-nomad",
+                "/tmp/terraform-aws-nomad/modules/install-nomad/install-nomad --version {{user \"nomad_version\"}}",
+                "git clone https://github.com/hashicorp/terraform-aws-vault.git /tmp/terraform-aws-vault",
+                "/tmp/terraform-aws-vault/modules/install-vault/install-vault --version {{user \"vault_version\"}}",
+                "rm /home/centos/.ssh/authorized_keys"
+            ]
+        }
+    ]
+}
